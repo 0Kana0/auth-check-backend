@@ -4,6 +4,7 @@ const router = express.Router()
 
 //------- LOGIN -------//
 router.post("/signin", controller.signin)
+router.post("/refresh-token", controller.refreshToken)
 
 //------- LOGOUT -------//
 
