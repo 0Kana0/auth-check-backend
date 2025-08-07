@@ -4,6 +4,8 @@ const router = express.Router()
 
 //------- LOGIN -------//
 router.post("/signin", controller.signin)
+router.post("/signinwithidennumber", controller.signinWithIdennumber)
+router.post("/verify-otp", controller.verifySigninWithIdennumber)
 router.post("/refresh-token", controller.refreshToken)
 
 //------- LOGOUT -------//
