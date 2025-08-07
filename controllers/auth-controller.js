@@ -4,6 +4,7 @@ const { Op } = require("sequelize");
 
 const { hashPassword, comparePassword } = require("../utils/hash.js");
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require("../utils/jwt.js");
+const { redisClient } = require("../server.js")
 
 const db = require("../db/models");
 const User = db.User
@@ -123,6 +124,45 @@ exports.signin = async (req, res, next) => {
     console.log(error);
   }
 };
+
+exports.signinwithidennumber = async (req, res, next) => {
+  try {
+    const { idennumber, otp_type } = req.body;
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    if (otp_type === 'sms') {
+      const key = `otp:${idennumber}`;
+      const ttl = 60 * 5; // 5 นาที
+
+      try {
+        await redisClient.setEx(key, ttl, otp);
+
+        const response = await axios.post(
+          `${process.env.SMSMKT_URL}/send-message`,
+          postData,
+          {
+            headers: {
+              Accept: "application/json",
+              "api_key": process.env.SMSMKT_API_KEY,
+              "secret_key": process.env.SMSMKT_SECRET_KEY,
+            },
+          }
+        );
+
+        // ใช้งาน response.data ได้ที่นี่
+        console.log("Success:", response.data);
+
+        res.json({ message: 'OTP ถูกส่งไปที่ SMS แล้ว' });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+  } catch (error) {
+    console.log(error);
+  }
+}
 
 exports.refreshToken = async (req, res) => {
   // เรียกใช้ refreshToken จาก cookies
