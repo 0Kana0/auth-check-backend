@@ -19,10 +19,8 @@ module.exports = (sequelize, DataTypes) => {
     token: DataTypes.STRING,
     user_id: DataTypes.INTEGER,
     expiresAt: DataTypes.DATE,
-    deletedAt: DataTypes.DATE,
   }, {
     sequelize,
-    paranoid: true,
     freezeTableName: true,
     timestamps: true, // ต้องเปิด timestamps ด้วย
     modelName: 'RefreshToken',

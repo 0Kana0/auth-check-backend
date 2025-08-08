@@ -9,6 +9,7 @@ router.post("/verify-otp", controller.verifySigninWithIdennumber)
 router.post("/refresh-token", controller.refreshToken)
 
 //------- LOGOUT -------//
+router.post("/logout", controller.logout)
 
 //------- GET -------//
 

@@ -13,7 +13,13 @@ module.exports = {
         type: Sequelize.STRING
       },
       user_id: {
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'user', // ชื่อ table ใน DB
+          key: 'id'
+        },
+        onDelete: 'CASCADE', // ✅ สำคัญ!
       },
       expiresAt: {
         type: Sequelize.DATE
@@ -24,9 +30,6 @@ module.exports = {
       },
       updatedAt: {
         allowNull: false,
-        type: Sequelize.DATE
-      },
-      deletedAt: {
         type: Sequelize.DATE
       },
     });

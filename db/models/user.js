@@ -1,6 +1,6 @@
 "use strict";
-const { 
-  Model 
+const {
+  Model
 } = require("sequelize");
 
 module.exports = (sequelize, DataTypes) => {
@@ -12,7 +12,12 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
-      User.hasMany(models.RefreshToken, { foreignKey: 'user_id', as: 'user' });
+      User.hasMany(models.RefreshToken, {
+        foreignKey: 'user_id',
+        as: 'user',
+        onDelete: 'CASCADE',
+        hooks: true, // ✅ จำเป็นถ้าใช้ paranoid
+      });
     }
   }
   User.init({
@@ -23,10 +28,8 @@ module.exports = (sequelize, DataTypes) => {
     phone: DataTypes.STRING,
     email: DataTypes.STRING,
     loginType: DataTypes.STRING,
-    deletedAt: DataTypes.DATE,
   }, {
     sequelize,
-    paranoid: true,
     freezeTableName: true,
     timestamps: true, // ต้องเปิด timestamps ด้วย
     modelName: 'User',
