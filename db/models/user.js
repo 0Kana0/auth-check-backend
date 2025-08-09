@@ -14,7 +14,13 @@ module.exports = (sequelize, DataTypes) => {
       // define association here
       User.hasMany(models.RefreshToken, {
         foreignKey: 'user_id',
-        as: 'user',
+        as: 'refreshtoken',
+        onDelete: 'CASCADE',
+        hooks: true, // ✅ จำเป็นถ้าใช้ paranoid
+      });
+      User.hasMany(models.ChatGroup, {
+        foreignKey: 'user_id',
+        as: 'chatgroup',
         onDelete: 'CASCADE',
         hooks: true, // ✅ จำเป็นถ้าใช้ paranoid
       });

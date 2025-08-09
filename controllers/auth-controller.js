@@ -89,6 +89,7 @@ exports.signin = async (req, res, next) => {
           secure: false, // ✅ ใช้ true ถ้าเป็น HTTPS
           sameSite: "strict",
           path: "/api/refresh-token",
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 วัน
         });
 
         return res.json({
@@ -100,7 +101,7 @@ exports.signin = async (req, res, next) => {
           token: accessToken,
         });
 
-        // ถ้ามีการ backup ข้อมูลเก็บไว้แล้ว
+      // ถ้ามีการ backup ข้อมูลเก็บไว้แล้ว
       } else {
         // สร้าง token
         const payload = { username: response.data.data.username, id: exists.id };
@@ -120,6 +121,7 @@ exports.signin = async (req, res, next) => {
           secure: false, // ✅ ใช้ true ถ้าเป็น HTTPS
           sameSite: "strict",
           path: "/api/refresh-token",
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 วัน
         });
 
         return res.json({
@@ -297,6 +299,7 @@ exports.verifySigninWithIdennumber = async (req, res, next) => {
       secure: false, // ✅ ใช้ true ถ้าเป็น HTTPS
       sameSite: "strict",
       path: "/api/refresh-token",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 วัน
     });
 
     return res.json({
@@ -319,7 +322,7 @@ exports.refreshToken = async (req, res) => {
   // เรียกใช้ refreshToken จาก cookies
   const token = req.cookies.refreshToken;
   if (!token)
-    return res.status(401).json({ error: "ไม่พบ refresh token ถูกส่งมา" });
+    return res.status(401).json({ error: "ไม่พบ refreshtoken ถูกส่งมา" });
 
   try {
     const decoded = verifyRefreshToken(token);
@@ -330,23 +333,35 @@ exports.refreshToken = async (req, res) => {
       where: {
         token,
         user_id: decoded.id,
-        expiresAt: { [Op.gt]: new Date() }, // ยังไม่หมดอายุ
+        expiresAt: { [Op.gt]: moment() }, // ยังไม่หมดอายุ
       },
     });
     console.log(existing);
     if (!existing)
       return res
         .status(403)
-        .json({ error: "Refresh token ไม่ถูกต้องหรือหมดอายุ" });
+        .json({ error: "refreshtoken ไม่ถูกต้องหรือหมดอายุ" });
 
     // เรียกข้อมูลผู้ใช้สำหรับส่ง api
-    const existUser = await User.findOne({
-      where: { username: decoded.username },
-    });
+    const existUser = await User.findOne({ where: { username: decoded.username } });
     // สร้าง token ใหม่
-    const newAccessToken = generateAccessToken({
-      username: decoded.username,
-      id: decoded.id,
+    const payload = { username: decoded.username, id: decoded.id }
+    const newAccessToken = generateAccessToken(payload);
+    const newRefreshToken = generateRefreshToken(payload);
+
+    // เก็บ refreshToken ที่สร้างใหม่ใน db
+    await RefreshToken.update({
+      token: newRefreshToken,
+      expiresAt: moment().add(7, "days").toDate(), // 7 วัน
+    }, { where: { id: existing.id } })
+
+    // ส่ง refreshtoken ที่สร้างใหม่ผ่าน cookie
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      secure: false, // ✅ ใช้ true ถ้าเป็น HTTPS
+      sameSite: "strict",
+      path: "/api/refresh-token",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 วัน
     });
 
     return res.json({
@@ -366,12 +381,17 @@ exports.refreshToken = async (req, res) => {
 exports.logout = async (req, res) => {
   const token = req.cookies.refreshToken;
   if (!token)
-    return res.status(401).json({ error: "ไม่พบ refresh token ถูกส่งมา" });
+    return res.status(401).json({ error: "ไม่พบ refreshtoken ถูกส่งมา" });
 
   try {
-    await RefreshToken.destroy({ where: { token } });
-    res.clearCookie('refreshToken', { path: '/auth/refresh-token' });
-    res.clearCookie('refreshToken', { path: '/auth/logout' });
+    const deleteRefreshToken = await RefreshToken.destroy({ where: { token } });
+    console.log(deleteRefreshToken);
+    res.clearCookie('refreshToken', { path: '/api/refresh-token' });
+    res.clearCookie('refreshToken', { path: '/api/logout' });
+
+    if (deleteRefreshToken === 0) 
+      return res.json({ message: "ไม่พบ refreshtoken ใน database" });
+
     return res.json({ message: "logout สำเร็จ" });
   } catch (error) {
     console.log(error);
