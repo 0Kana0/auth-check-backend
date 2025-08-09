@@ -16,10 +16,16 @@ const db = require("../db/models");
 const User = db.User;
 const RefreshToken = db.RefreshToken;
 
+// login ของ user ปกติ
 exports.signin = async (req, res, next) => {
   try {
     const { username, password } = req.body;
     console.log(username, password);
+
+    if (!username)
+        return res.status(400).json({ error: "ชื่อผู้ใช้งานห้ามเป็นค่าว่าง" });
+    if (!password)
+        return res.status(400).json({ error: "รหัสผ่านห้ามเป็นค่าว่าง" });
 
     // เตรียมข้อมูลก่อนส่ง
     const postData = {
@@ -97,10 +103,7 @@ exports.signin = async (req, res, next) => {
         // ถ้ามีการ backup ข้อมูลเก็บไว้แล้ว
       } else {
         // สร้าง token
-        const payload = {
-          username: response.data.data.username,
-          id: exists.id,
-        };
+        const payload = { username: response.data.data.username, id: exists.id };
         const accessToken = generateAccessToken(payload);
         const refreshToken = generateRefreshToken(payload);
 
@@ -132,17 +135,23 @@ exports.signin = async (req, res, next) => {
       // ถ้าระบบของ onesqa มีปัญหา
       console.error("Error:", error.response?.data || error);
 
-
+      // ทำ login ตามปกติ
     }
   } catch (error) {
     console.log(error);
-    res.status(403).json({ error });
+    res.status(403).json({ error: error });
   }
 };
 
+// login ของผู้ประเมินโดยจะทำการขอ OTP ก่อน
 exports.signinWithIdennumber = async (req, res, next) => {
   try {
     const { idennumber, otp_type } = req.body;
+
+    if (!idennumber)
+        return res.status(400).json({ error: "เลขบัตรประชาชนห้ามเป็นค่าว่าง" });
+    if (!otp_type)
+        return res.status(400).json({ error: "otp_type ห้ามเป็นค่าว่าง" });
 
     // เตรียมข้อมูลก่อนส่ง
     const postData = {
@@ -228,7 +237,7 @@ exports.signinWithIdennumber = async (req, res, next) => {
           return res.json({ message: "OTP ถูกส่งไปที่ SMS แล้ว" });
         } catch (error) {
           console.log(error);
-          res.status(403).json({ error });
+          res.status(403).json({ error: error });
         }
       } else if (otp_type === "email") {
 
@@ -246,15 +255,16 @@ exports.signinWithIdennumber = async (req, res, next) => {
       // ถ้าระบบของ onesqa มีปัญหา
       console.error("Error:", error.response?.data || error);
 
-
+      // ทำ login ตามปกติ
     }
 
   } catch (error) {
     console.log(error);
-    res.status(403).json({ error });
+    res.status(403).json({ error: error });
   }
 };
 
+// ผู้ประเมินนำ OTP ที่ได้มา login
 exports.verifySigninWithIdennumber = async (req, res, next) => {
   try {
     const { idennumber, otp } = req.body;
@@ -264,14 +274,47 @@ exports.verifySigninWithIdennumber = async (req, res, next) => {
     if (!valid)
       return res.status(401).json({ error: "OTP ผิดหรือ OTP หมดอายุ" });
 
-    
+    // เรียกข้อมูลผู้ใช้สำหรับส่ง api
+    const existUser = await User.findOne({
+      where: { username: idennumber },
+    });
+
+    // สร้าง token
+    const payload = { username: idennumber, id: existUser.id };
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
+    // เก็บ refreshToken ใน db
+    await RefreshToken.create({
+      token: refreshToken,
+      user_id: existUser.id,
+      expiresAt: moment().add(7, "days").toDate(), // 7 วัน
+    });
+
+    // ส่ง refresh token ผ่าน cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: false, // ✅ ใช้ true ถ้าเป็น HTTPS
+      sameSite: "strict",
+      path: "/api/refresh-token",
+    });
+
+    return res.json({
+      user: {
+        username: idennumber,
+        firstname: existUser.firstname,
+        lastname: existUser.lastname,
+      },
+      token: accessToken,
+    });
 
   } catch (error) {
     console.log(error);
-    res.status(403).json({ error });
+    res.status(403).json({ error: error });
   }
 };
 
+// ใช้ refreshtoken สร้าง token ปกติ ใช้ได้ทั้ง user และผู้ประเมิน
 exports.refreshToken = async (req, res) => {
   // เรียกใช้ refreshToken จาก cookies
   const token = req.cookies.refreshToken;
@@ -316,6 +359,22 @@ exports.refreshToken = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-    res.status(403).json({ error });
+    res.status(403).json({ error: error });
+  }
+};
+
+exports.logout = async (req, res) => {
+  const token = req.cookies.refreshToken;
+  if (!token)
+    return res.status(401).json({ error: "ไม่พบ refresh token ถูกส่งมา" });
+
+  try {
+    await RefreshToken.destroy({ where: { token } });
+    res.clearCookie('refreshToken', { path: '/auth/refresh-token' });
+    res.clearCookie('refreshToken', { path: '/auth/logout' });
+    return res.json({ message: "logout สำเร็จ" });
+  } catch (error) {
+    console.log(error);
+    res.status(403).json({ error: error });
   }
 };

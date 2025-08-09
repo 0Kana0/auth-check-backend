@@ -2,9 +2,8 @@
 const {
   Model
 } = require('sequelize');
-
 module.exports = (sequelize, DataTypes) => {
-  class RefreshToken extends Model {
+  class ChatGroup extends Model {
     /**
      * Helper method for defining associations.
      * This method is not a part of Sequelize lifecycle.
@@ -12,19 +11,20 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
-      RefreshToken.belongsTo(models.User, { foreignKey: 'user_id', as: 'refreshtoken' });
+      ChatGroup.belongsTo(models.User, { foreignKey: 'user_id', as: 'user' });
+      ChatGroup.belongsTo(models.ModelAi, { foreignKey: 'modelai_id', as: 'modelai' });
     }
   }
-  RefreshToken.init({
-    token: DataTypes.STRING,
+  ChatGroup.init({
+    name: DataTypes.STRING,
     user_id: DataTypes.INTEGER,
-    expiresAt: DataTypes.DATE,
+    modelai_id: DataTypes.INTEGER
   }, {
     sequelize,
     freezeTableName: true,
     timestamps: true, // ต้องเปิด timestamps ด้วย
-    modelName: 'RefreshToken',
-    tableName: 'refreshtoken'
+    modelName: 'ChatGroup',
+    tableName: 'chatgroup'
   });
-  return RefreshToken;
+  return ChatGroup;
 };

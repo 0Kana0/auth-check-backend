@@ -2,14 +2,14 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('refreshtoken', {
+    await queryInterface.createTable('chatgroup', {
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
         type: Sequelize.INTEGER
       },
-      token: {
+      name: {
         type: Sequelize.STRING
       },
       user_id: {
@@ -21,8 +21,14 @@ module.exports = {
         },
         onDelete: 'CASCADE', // ✅ สำคัญ!
       },
-      expiresAt: {
-        type: Sequelize.DATE
+      modelai_id: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'modelai', // ชื่อ table ใน DB
+          key: 'id'
+        },
+        onDelete: 'CASCADE', // ✅ สำคัญ!
       },
       createdAt: {
         allowNull: false,
@@ -31,10 +37,10 @@ module.exports = {
       updatedAt: {
         allowNull: false,
         type: Sequelize.DATE
-      },
+      }
     });
   },
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('refreshtoken');
+    await queryInterface.dropTable('chatgroup');
   }
 };
